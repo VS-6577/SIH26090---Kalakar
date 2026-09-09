@@ -153,3 +153,33 @@ export function computePricing(costs) {
     recommendedPrice
   };
 }
+
+/**
+ * Phase 4 — Voice Audio Transcription via Gemini 3
+ *
+ * Sends recorded voice audio (base64) to backend to transcribe with Gemini 3.
+ *
+ * @param {object} params
+ * @param {string} params.audioData - Base64 audio data URL
+ * @param {string} [params.mimeType] - Audio MIME type
+ * @param {string} [params.language] - Language preference
+ * @returns {Promise<object>} { success, transcript, metadata }
+ */
+export async function transcribeVoiceAudio({ audioData, mimeType, language }) {
+  const sessionId = `session_${Date.now()}`;
+  const baseUrl = getBackendUrl();
+
+  const response = await fetch(`${baseUrl}/api/product-sessions/${sessionId}/transcribe-voice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioData, mimeType, language })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to transcribe voice audio.');
+  }
+
+  return data;
+}

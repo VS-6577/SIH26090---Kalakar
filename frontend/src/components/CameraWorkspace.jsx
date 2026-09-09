@@ -124,12 +124,26 @@ export default function CameraWorkspace({
     setTimeout(() => {
       let dataUrl = '';
       if (videoRef.current && videoRef.current.videoWidth) {
+        const vw = videoRef.current.videoWidth;
+        const vh = videoRef.current.videoHeight;
+        const maxDim = 1024;
+        let w = vw;
+        let h = vh;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
         const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth || 1280;
-        canvas.height = videoRef.current.videoHeight || 720;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        ctx.drawImage(videoRef.current, 0, 0, w, h);
+        dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       }
 
       const imageObject = {

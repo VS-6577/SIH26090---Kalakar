@@ -56,7 +56,7 @@ contentRouter.post('/:id/generate-content', async (req, res) => {
       sessionId: id,
       content,
       metadata: {
-        model: 'gemini-2.0-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-3',
         timestamp: new Date().toISOString(),
         stage: 'product_content'
       }

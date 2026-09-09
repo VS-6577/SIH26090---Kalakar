@@ -9,6 +9,7 @@ import { analyzeProductRouter } from './routes/analyze.js';
 import { contentRouter } from './routes/content.js';
 import { photoshootRouter } from './routes/photoshoot.js';
 import { imageGenRouter } from './routes/imageGen.js';
+import { transcribeRouter } from './routes/transcribe.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -62,6 +63,7 @@ app.use('/api/product-sessions', analyzeProductRouter);
 app.use('/api/product-sessions', contentRouter);
 app.use('/api/product-sessions', photoshootRouter);
 app.use('/api/product-sessions', imageGenRouter);
+app.use('/api/product-sessions', transcribeRouter);
 
 // --- Start ---
 app.listen(PORT, '0.0.0.0', () => {

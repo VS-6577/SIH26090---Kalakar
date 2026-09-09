@@ -48,7 +48,7 @@ photoshootRouter.post('/:id/photoshoot', async (req, res) => {
       sessionId: id,
       photoshoot,
       metadata: {
-        model: 'gemini-2.0-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-3',
         timestamp: new Date().toISOString(),
         stage: 'photoshoot_prompts'
       }

@@ -93,7 +93,7 @@ Return a JSON object with this exact structure:
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-3.6-flash',
           max_tokens: 1500,
           response_format: { type: 'json_object' },
           messages: [
@@ -127,7 +127,7 @@ Return a JSON object with this exact structure:
 
   // --- Option 2: Direct Google Gemini SDK Fallback ---
   if (geminiKey && !geminiKey.includes('your_')) {
-    console.log(`[SERVICE] Calling Google Gemini SDK for Stage 1 Product Analysis...`);
+    console.log(`[SERVICE] Calling Google Gemini SDK (Gemini 3) for Stage 1 Product Analysis...`);
     const ai = new GoogleGenerativeAI(geminiKey);
 
     const imageParts = validImages.map(img => ({
@@ -137,7 +137,15 @@ Return a JSON object with this exact structure:
       }
     }));
 
-    const targetModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    const targetModels = [
+      ...new Set([
+        process.env.GEMINI_MODEL,
+        'gemini-3.6-flash',
+        'gemini-3-flash-preview',
+        'gemini-3.7-flash',
+        'gemini-flash-latest'
+      ].filter(Boolean))
+    ];
 
     for (const modelName of targetModels) {
       try {
@@ -147,7 +155,7 @@ Return a JSON object with this exact structure:
             responseMimeType: 'application/json',
             temperature: 0.2
           }
-        });
+        }, { timeout: 35000 });
 
         const result = await model.generateContent([promptText, ...imageParts]);
         const text = result.response.text();
@@ -241,7 +249,7 @@ Return a JSON object with this EXACT structure:
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-3.6-flash',
           max_tokens: 1500,
           response_format: { type: 'json_object' },
           messages: [{ role: 'user', content: promptText }]
@@ -267,9 +275,17 @@ Return a JSON object with this EXACT structure:
 
   // --- Option 2: Direct Google Gemini SDK Fallback ---
   if (geminiKey && !geminiKey.includes('your_')) {
-    console.log(`[SERVICE] Calling Google Gemini SDK for Stage 2 Product Content Generation...`);
+    console.log(`[SERVICE] Calling Google Gemini SDK (Gemini 3) for Stage 2 Product Content Generation...`);
     const ai = new GoogleGenerativeAI(geminiKey);
-    const targetModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    const targetModels = [
+      ...new Set([
+        process.env.GEMINI_MODEL,
+        'gemini-3.6-flash',
+        'gemini-3-flash-preview',
+        'gemini-3.7-flash',
+        'gemini-flash-latest'
+      ].filter(Boolean))
+    ];
 
     for (const modelName of targetModels) {
       try {
@@ -279,7 +295,7 @@ Return a JSON object with this EXACT structure:
             responseMimeType: 'application/json',
             temperature: 0.3
           }
-        });
+        }, { timeout: 25000 });
 
         const result = await model.generateContent([promptText]);
         const text = result.response.text();
@@ -337,7 +353,7 @@ Return a JSON object with this exact structure:
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-3.6-flash',
           max_tokens: 1500,
           response_format: { type: 'json_object' },
           messages: [{ role: 'user', content: promptText }]
@@ -357,6 +373,41 @@ Return a JSON object with this exact structure:
       }
     } catch (err) {
       console.warn(`[SERVICE] OpenRouter Phase 5 error:`, err.message);
+    }
+  }
+
+  // --- Option 2: Direct Google Gemini SDK Fallback ---
+  if (geminiKey && !geminiKey.includes('your_')) {
+    console.log(`[SERVICE] Calling Google Gemini SDK (Gemini 3) for Phase 5 Mockup Planning...`);
+    const ai = new GoogleGenerativeAI(geminiKey);
+    const targetModels = [
+      ...new Set([
+        process.env.GEMINI_MODEL,
+        'gemini-3.6-flash',
+        'gemini-3-flash-preview',
+        'gemini-3.7-flash',
+        'gemini-flash-latest'
+      ].filter(Boolean))
+    ];
+
+    for (const modelName of targetModels) {
+      try {
+        const model = ai.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.4
+          }
+        }, { timeout: 25000 });
+
+        const result = await model.generateContent([promptText]);
+        const text = result.response.text();
+        const plan = parseJsonResponse(text);
+        console.log(`[SERVICE] Google SDK Phase 5 mockup planning complete via ${modelName}.`);
+        return plan;
+      } catch (sdkErr) {
+        console.warn(`[SERVICE] Google SDK Phase 5 model ${modelName} failed:`, sdkErr.message);
+      }
     }
   }
 
@@ -603,4 +654,101 @@ export function generatePricingStory({ productTitle, materialCost, labourCost, p
       marginPct: Number(desiredMarginPct)
     }
   };
+}
+
+/**
+ * Phase 4 — Voice Transcription via Gemini 3
+ * Transcribes artisan voice recordings (WebM, WAV, MP3, etc.)
+ * Supports Hindi, English, and Hinglish.
+ *
+ * @param {object} params
+ * @param {string} params.audioBase64 - Base64 audio string or data URL
+ * @param {string} [params.mimeType] - Audio MIME type (e.g. 'audio/webm', 'audio/wav')
+ * @param {string} [params.language] - Language hint ('hi-IN', 'en-IN', 'en-US', 'auto')
+ * @returns {Promise<string>} Transcribed text
+ */
+export async function transcribeAudio({ audioBase64, mimeType = 'audio/webm', language = 'auto' }) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey || geminiKey.includes('your_')) {
+    throw new Error('Gemini API key is not configured for voice transcription.');
+  }
+
+  const ai = new GoogleGenerativeAI(geminiKey);
+  const targetModels = [
+    ...new Set([
+      process.env.GEMINI_MODEL,
+      'gemini-3-flash-preview',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+      'gemini-flash-latest'
+    ].filter(Boolean))
+  ];
+
+  let langHint = 'The speaker may speak in Hindi, Indian English, or mixed Hinglish.';
+  if (language === 'hi-IN') langHint = 'The speaker is speaking primarily in Hindi.';
+  if (language === 'en-IN') langHint = 'The speaker is speaking in Indian English or Hinglish.';
+  if (language === 'en-US') langHint = 'The speaker is speaking in English.';
+
+  const promptText = `Listen carefully to this audio recording of an artisan describing their handcrafted product.
+${langHint}
+
+TASK: Transcribe exactly what the person said verbatim.
+RULES:
+1. Accurately capture their speech, materials mentioned, craft details, dimensions, time taken, and colors.
+2. If spoken in Hindi, transcribe in natural readable script (Devanagari or Romanized Hinglish as spoken).
+3. Do NOT invent information that was not said.
+4. Do NOT include quotes, timestamps, metadata, speaker tags, or translation notes.
+5. If the audio is silent or only background ambient noise, respond strictly with: NO_SPEECH.
+Return ONLY the transcription text.`;
+
+  let rawBase64 = audioBase64;
+  let detectedMime = mimeType;
+  if (typeof audioBase64 === 'string' && audioBase64.startsWith('data:')) {
+    const parts = audioBase64.split(',');
+    const header = parts[0];
+    rawBase64 = parts[1];
+    const mimeMatch = header.match(/data:([^;]+)/);
+    if (mimeMatch) {
+      detectedMime = mimeMatch[1];
+    }
+  }
+
+  const cleanMimeType = detectedMime.split(';')[0];
+
+  for (const modelName of targetModels) {
+    try {
+      console.log(`[SERVICE] Transcribing audio with Gemini model ${modelName} (${cleanMimeType})...`);
+      const model = ai.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.1
+        }
+      }, { timeout: 25000 });
+
+      const result = await model.generateContent([
+        promptText,
+        {
+          inlineData: {
+            data: rawBase64,
+            mimeType: cleanMimeType
+          }
+        }
+      ]);
+
+      let text = result.response.text().trim();
+      text = text.replace(/^["'`]|["'`]$/g, '').trim();
+
+      if (text.toUpperCase() === 'NO_SPEECH' || text.toLowerCase().includes('no audible speech')) {
+        console.log(`[SERVICE] Gemini audio transcription (${modelName}): No speech detected.`);
+        return '';
+      }
+
+      console.log(`[SERVICE] Gemini audio transcription complete via ${modelName}: "${text.substring(0, 60)}..."`);
+      return text;
+    } catch (err) {
+      console.warn(`[SERVICE] Gemini audio transcription with ${modelName} failed:`, err.message);
+    }
+  }
+
+  throw new Error('Failed to transcribe audio with Gemini 3.');
 }

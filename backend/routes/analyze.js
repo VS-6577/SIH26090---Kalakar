@@ -47,7 +47,7 @@ analyzeProductRouter.post('/:id/analyze', async (req, res) => {
 
   // --- Gemini Analysis ---
   try {
-    console.log(`[DIAGNOSTIC] Step 3: Invoking Gemini Vision model (gemini-2.0-flash)...`);
+    console.log(`[DIAGNOSTIC] Step 3: Invoking Gemini Vision model (Gemini 3)...`);
 
     const profile = await analyzeProductImages(validImages);
 
@@ -62,7 +62,7 @@ analyzeProductRouter.post('/:id/analyze', async (req, res) => {
       sessionId: id,
       profile,
       metadata: {
-        model: 'gemini-2.0-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-3',
         timestamp: new Date().toISOString(),
         imageCount: validImages.length,
         stage: 'product_understanding'
